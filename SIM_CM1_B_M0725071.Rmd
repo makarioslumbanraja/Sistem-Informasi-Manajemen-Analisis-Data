@@ -1,0 +1,131 @@
+---
+title: "Analisis Data Film pada Database Sakila"
+author: "Makarios Lumbanraja"
+date: "2026-05-23"
+output: 
+  html_document:
+    toc: true
+    theme: cosmo
+    highlight: tango
+    css: style.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Pendahuluan
+
+Pada laporan ini dilakukan analisis data menggunakan database Sakila yang merupakan database contoh sistem penyewaan film dari MySQL. Analisis dilakukan untuk mengetahui film yang paling sering disewa serta kategori film yang paling populer berdasarkan data rental pelanggan.
+
+Proses analisis dilakukan menggunakan query SQL untuk mengambil data dari database MySQL, kemudian data divisualisasikan menggunakan bahasa pemrograman R dan package ggplot2. Hasil visualisasi diharapkan dapat membantu memahami pola dan preferensi pelanggan terhadap film pada database Sakila.
+
+```{r loadlibrary}
+# Memuat paket yang diperlukan untuk impor dataset .sql dan visualisasi
+
+
+library(DBI)
+library(RMySQL)
+library(tidyverse)
+
+```
+Pada tahap awal analisis, digunakan beberapa library pada R untuk mendukung proses koneksi database, pengolahan data, dan visualisasi data. Library DBI digunakan untuk membuat koneksi antara R dan database MySQL. Library RMySQL digunakan sebagai driver agar R dapat mengakses database MySQL, termasuk database Sakila. Selain itu, library tidyverse digunakan untuk membantu proses analisis dan visualisasi data karena menyediakan berbagai package seperti dplyr untuk pengolahan data dan ggplot2 untuk pembuatan grafik.
+
+Dengan menggunakan library tersebut, proses pengambilan data dari database, analisis data, dan visualisasi dapat dilakukan dengan lebih mudah dan terstruktur.
+
+```{r Koneksi Database}
+con <- dbConnect(
+  MySQL(),
+  user = "root",
+  password = "rut123",
+  dbname = "sakila",
+  host = "localhost",
+  port = 3306
+)
+dbListTables(con)
+```
+# Deskripsi Insight Data yang Diambil
+
+Data yang digunakan pada analisis ini diambil dari database Sakila yang berisi informasi mengenai sistem penyewaan film. Fokus analisis dilakukan pada data transaksi penyewaan, data film, dan kategori film untuk mengetahui pola penyewaan pelanggan.
+
+Insight pertama yang diambil adalah data mengenai film yang paling sering disewa. Analisis ini bertujuan untuk mengetahui film yang memiliki tingkat popularitas tertinggi berdasarkan jumlah transaksi penyewaan. Data diperoleh dengan menghubungkan tabel rental, inventory, dan film.
+
+Insight kedua yang diambil adalah data mengenai kategori film terpopuler. Analisis ini dilakukan untuk mengetahui kategori film yang paling banyak diminati pelanggan berdasarkan total jumlah penyewaan pada setiap kategori. Data diperoleh dengan menghubungkan tabel rental, inventory, film_category, dan category.
+
+Melalui kedua insight tersebut, dapat diketahui pola preferensi pelanggan terhadap film dan kategori tertentu pada database Sakila.
+
+```{r Ambil Data dari SQL}
+query <- "
+SELECT f.title, COUNT(*) AS jumlah_rental
+FROM rental r
+JOIN inventory i ON r.inventory_id = i.inventory_id
+JOIN film f ON i.film_id = f.film_id
+GROUP BY f.title
+ORDER BY jumlah_rental DESC
+LIMIT 10;
+"
+data_film <- dbGetQuery(con, query)
+data_film
+
+query_kategori <- "
+SELECT c.name AS kategori,
+       COUNT(*) AS total_rental
+FROM rental r
+JOIN inventory i ON r.inventory_id = i.inventory_id
+JOIN film_category fc ON i.film_id = fc.film_id
+JOIN category c ON fc.category_id = c.category_id
+GROUP BY c.name
+ORDER BY total_rental DESC;
+"
+
+data_kategori <- dbGetQuery(con, query_kategori)
+data_kategori
+```
+
+
+```{r Visualisasi}
+ggplot(data_film,
+       aes(x = reorder(title, jumlah_rental),
+           y = jumlah_rental)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "10 Film Paling Sering Disewa",
+    x = "Judul Film",
+    y = "Jumlah Rental"
+  )
+
+
+ggplot(data_kategori,
+       aes(x = reorder(kategori, total_rental),
+           y = total_rental)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Kategori Film Terpopuler",
+    x = "Kategori",
+    y = "Jumlah Rental"
+  )
+
+```
+
+
+# Interpretasi Analisis Data Film dari Database Sakila
+
+Berdasarkan visualisasi “10 Film Paling Sering Disewa”, dapat diketahui bahwa film BUCKET BROTHERHOOD merupakan film dengan jumlah penyewaan tertinggi dibandingkan film lainnya pada database Sakila. Film tersebut memiliki total rental paling besar di antara 10 film teratas, yang menunjukkan bahwa film tersebut memiliki tingkat popularitas yang tinggi di kalangan pelanggan.
+
+Selain itu, beberapa film lain seperti ROCKETEER MOTHER, SCALAWAG DUCK, dan RIDGEMONT SUBMARINE juga menunjukkan jumlah rental yang relatif tinggi dan tidak berbeda jauh satu sama lain. Hal ini menunjukkan bahwa preferensi pelanggan terhadap film cukup beragam, meskipun terdapat beberapa judul yang lebih dominan dibandingkan film lainnya.
+
+Dari hasil analisis ini dapat disimpulkan bahwa data rental pada database Sakila menunjukkan adanya film-film tertentu yang lebih diminati pelanggan, sehingga film dengan tingkat rental tinggi dapat dianggap sebagai film populer dalam sistem penyewaan tersebut.
+
+Berdasarkan visualisasi “Kategori Film Terpopuler”, kategori Sports menjadi kategori dengan jumlah rental tertinggi pada database Sakila. Hal ini menunjukkan bahwa pelanggan paling banyak menyewa film dengan genre olahraga dibandingkan kategori lainnya.
+
+Selain kategori Sports, kategori Animation, Action, dan Sci-Fi juga memiliki jumlah rental yang tinggi. Hal tersebut menunjukkan bahwa pelanggan cenderung tertarik pada film dengan tema hiburan, aksi, dan animasi. Sebaliknya, kategori seperti Music dan Travel memiliki jumlah rental yang lebih rendah dibandingkan kategori lainnya, sehingga dapat dikatakan bahwa minat pelanggan terhadap kategori tersebut relatif lebih kecil.
+
+Secara keseluruhan, hasil analisis kategori film menunjukkan bahwa preferensi pelanggan pada database Sakila lebih dominan terhadap genre yang bersifat hiburan dan aksi. Informasi ini dapat digunakan sebagai bahan pertimbangan dalam pengelolaan koleksi film, terutama dalam menentukan kategori film yang perlu diperbanyak karena memiliki tingkat permintaan yang tinggi.
+
+# Kesimpulan
+
+Berdasarkan hasil analisis data rental film pada database Sakila, dapat diketahui bahwa terdapat beberapa film dan kategori film yang memiliki tingkat popularitas lebih tinggi dibandingkan yang lain. Film BUCKET BROTHERHOOD menjadi film dengan jumlah penyewaan tertinggi, sedangkan kategori Sports menjadi kategori film yang paling sering disewa oleh pelanggan.
+
+Hasil visualisasi menunjukkan bahwa pola penyewaan film pada database Sakila dipengaruhi oleh preferensi pelanggan terhadap genre tertentu, khususnya genre hiburan dan aksi. Dengan demikian, analisis data rental dapat membantu dalam memahami perilaku pelanggan serta mendukung pengambilan keputusan terkait pengelolaan dan pengembangan koleksi film.
+
